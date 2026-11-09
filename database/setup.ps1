@@ -1,8 +1,11 @@
 # ContainerTrack - Crea la base de datos, el usuario de la API, las tablas y los datos simulados.
 # Uso (desde la raiz del proyecto):
-#   powershell -ExecutionPolicy Bypass -File database\setup.ps1
+#   powershell -ExecutionPolicy Bypass -File database\setup.ps1                                   (todo; BORRA y recrea las tablas)
+#   powershell -ExecutionPolicy Bypass -File database\setup.ps1 -Solo seeders\04_historico.sql   (un script suelto)
 # Lee DB_SERVER, DB_NAME, DB_USER y DB_PASSWORD de backend\.env
 # y se conecta con tu cuenta de Windows (-E), que es administradora de SQL Server.
+
+param([string[]]$Solo)
 
 $ErrorActionPreference = 'Stop'
 $root    = Split-Path $PSScriptRoot -Parent
@@ -20,11 +23,12 @@ Get-Content $envFile | ForEach-Object {
 
 $server = if ($cfg['DB_INSTANCE']) { "$($cfg['DB_SERVER'])\$($cfg['DB_INSTANCE'])" } else { $cfg['DB_SERVER'] }
 
-$scripts = @(
+$scripts = if ($Solo) { $Solo } else { @(
     'scripts\01_create_database.sql',
     'scripts\02_schema.sql',
-    'seeders\03_seed.sql'
-)
+    'seeders\03_seed.sql',
+    'seeders\04_historico.sql'
+) }
 
 foreach ($s in $scripts) {
     Write-Host "==> $s" -ForegroundColor Cyan

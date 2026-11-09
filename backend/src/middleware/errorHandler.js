@@ -14,7 +14,7 @@ export function notFound(req, res) {
 // Express 5 envia aqui los errores de funciones async automaticamente
 export function errorHandler(err, req, res, next) {
   if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ error: 'JSON invalido en el cuerpo de la peticion' });
+    return res.status(400).json({ error: 'La solicitud no tiene un formato válido' });
   }
 
   // Violaciones de UNIQUE / FOREIGN KEY / CHECK de SQL Server
@@ -28,7 +28,7 @@ export function errorHandler(err, req, res, next) {
   const status = err.status || 500;
   if (status === 500) console.error(err);
   res.status(status).json({
-    error: status === 500 ? 'Error interno del servidor' : err.message,
+    error: status === 500 ? 'Ocurrió un problema al procesar tu solicitud' : err.message,
     ...(err.details && { detalles: err.details }),
   });
 }

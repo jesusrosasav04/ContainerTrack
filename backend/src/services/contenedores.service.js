@@ -118,10 +118,20 @@ export async function historial(numero) {
   return Contenedor.findHistorial(actual.id);
 }
 
+// Eventos permitidos segun el estado actual del contenedor
+export const EVENTOS_PERMITIDOS = {
+  REGISTRADO: ['CARGA', 'ADUANA'],
+  EN_PUERTO: ['CARGA', 'SALIDA', 'DESCARGA', 'ADUANA', 'ENTREGA'],
+  EN_TRANSITO: ['ARRIBO'],
+  EN_ADUANA: ['CARGA', 'ENTREGA'],
+  ENTREGADO: [],
+};
+
 export async function registrarMovimiento(numero, d) {
   const actual = await obtener(numero);
-  if (!ESTADO_POR_EVENTO[d.evento]) {
-    throw new HttpError(400, `evento debe ser uno de: ${Object.keys(ESTADO_POR_EVENTO).join(', ')}`);
+  const { evento } = d;
+  if (!ESTADO_POR_EVENTO[evento] || evento === 'REGISTRO') {
+    throw new HttpError(400, `evento debe ser uno de: ${Object.keys(ESTADO_POR_EVENTO).filter((e) => e !== 'REGISTRO').join(', ')}`);
   }
   if (d.puerto != null && !/^[A-Z]{5}$/.test(d.puerto)) {
     throw new HttpError(400, 'puerto debe ser un codigo UN/LOCODE de 5 letras');
@@ -129,6 +139,50 @@ export async function registrarMovimiento(numero, d) {
   if (d.embarcacionImo != null && !/^\d{7}$/.test(d.embarcacionImo)) {
     throw new HttpError(400, 'embarcacionImo debe tener 7 digitos');
   }
-  await Contenedor.addMovimiento(actual.id, { ...d, nuevoEstado: ESTADO_POR_EVENTO[d.evento] });
+  if (d.descripcion != null && (typeof d.descripcion !== 'string' || d.descripcion.length > 250)) {
+    throw new HttpError(400, 'La descripción no puede superar 250 caracteres');
+  }
+
+  // Reglas del ciclo de vida: evitan secuencias imposibles (entregar algo que va navegando, etc.)
+  const permitidos = EVENTOS_PERMITIDOS[actual.estado] ?? [];
+  if (!permitidos.includes(evento)) {
+    throw new HttpError(409, permitidos.length
+      ? `Con estado ${actual.estado} solo se puede registrar: ${permitidos.join(', ')}`
+      : 'El contenedor ya fue entregado; su ciclo está cerrado');
+  }
+  const abordo = actual.embarcacionImo;
+  if (evento === 'CARGA' && !(d.embarcacionImo ?? abordo)) {
+    throw new HttpError(400, 'Indica la embarcación en la que se carga el contenedor');
+  }
+  if (evento === 'CARGA' && abordo && d.embarcacionImo && d.embarcacionImo !== abordo) {
+    throw new HttpError(409, `El contenedor ya está a bordo de otra embarcación (IMO ${abordo}). Registra primero la descarga.`);
+  }
+  if (evento === 'SALIDA' && !abordo) {
+    throw new HttpError(409, 'Para registrar la salida, primero carga el contenedor en una embarcación');
+  }
+  if (evento === 'SALIDA') {
+    // Si ya arribo despues de la ultima carga, lo que sigue es descargar, no volver a zarpar
+    const ultimo = (await Contenedor.findHistorial(actual.id)).find((h) => h.evento === 'CARGA' || h.evento === 'ARRIBO');
+    if (ultimo?.evento === 'ARRIBO') throw new HttpError(409, 'El contenedor ya arribó. Registra la descarga.');
+  }
+  if (evento === 'DESCARGA' && !abordo) {
+    throw new HttpError(409, 'El contenedor no está a bordo de ninguna embarcación');
+  }
+  if (['ADUANA', 'ENTREGA'].includes(evento) && abordo) {
+    throw new HttpError(409, 'El contenedor sigue a bordo. Registra primero la descarga.');
+  }
+
+  // Puerto por defecto: origen para carga y salida; destino para lo demas
+  // (salvo aduana antes de embarcar, que ocurre en el origen)
+  const enOrigen = ['CARGA', 'SALIDA'].includes(evento) || (evento === 'ADUANA' && actual.estado === 'REGISTRADO');
+  const puerto = d.puerto ?? (enOrigen ? actual.puertoOrigenCodigo : actual.puertoDestinoCodigo);
+
+  await Contenedor.addMovimiento(actual.id, {
+    evento,
+    puerto,
+    embarcacionImo: evento === 'CARGA' ? (d.embarcacionImo ?? abordo) : abordo,
+    descripcion: d.descripcion?.trim() || null,
+    nuevoEstado: ESTADO_POR_EVENTO[evento],
+  });
   return Contenedor.findHistorial(actual.id);
 }

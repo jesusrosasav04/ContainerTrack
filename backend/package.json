@@ -1,20 +1,27 @@
 {
   "name": "containertrack-backend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "API REST de ContainerTrack",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "secreto": "node scripts/secreto.js",
+    "crear-admin": "node scripts/crear-admin.js"
   },
   "keywords": [],
   "author": "Jesus Rosas",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "mssql": "^12.7.13"
   },
   "devDependencies": {

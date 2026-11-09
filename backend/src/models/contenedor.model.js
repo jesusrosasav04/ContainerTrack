@@ -141,22 +141,37 @@ export async function findHistorial(id) {
   return recordset;
 }
 
-// Registra el evento y actualiza el estado del contenedor en la misma transaccion
+// Registra el evento y aplica sus efectos en la misma transaccion:
+//  CARGA    -> asigna la embarcacion
+//  SALIDA   -> la embarcacion pasa a NAVEGANDO (el simulador la empieza a mover)
+//  ARRIBO   -> la embarcacion queda EN_PUERTO en ese puerto
+//  DESCARGA / ENTREGA -> el contenedor deja la embarcacion
 export function addMovimiento(id, d) {
   return enTransaccion(async (tx) => {
     const ids = await resolverIds(tx, d);
-    await new sql.Request(tx)
+    const req = new sql.Request(tx)
       .input('id', sql.Int, id)
       .input('evento', sql.VarChar(30), d.evento)
       .input('puerto', sql.Int, ids.puerto ?? null)
       .input('embarcacion', sql.Int, ids.embarcacion ?? null)
       .input('descripcion', sql.NVarChar(250), d.descripcion ?? null)
-      .input('estado', sql.VarChar(20), d.nuevoEstado)
-      .query(`INSERT INTO dbo.HistorialMovimientos (ContenedorId, Evento, PuertoId, EmbarcacionId, Descripcion)
-              VALUES (@id, @evento, @puerto, @embarcacion, @descripcion);
-              UPDATE dbo.Contenedores
-                 SET Estado = @estado,
-                     EmbarcacionId = COALESCE(@embarcacion, EmbarcacionId)
-               WHERE Id = @id;`);
+      .input('estado', sql.VarChar(20), d.nuevoEstado);
+
+    let efectos = '';
+    if (d.evento === 'CARGA') efectos = 'UPDATE dbo.Contenedores SET EmbarcacionId = @embarcacion WHERE Id = @id;';
+    if (['DESCARGA', 'ENTREGA'].includes(d.evento)) efectos = 'UPDATE dbo.Contenedores SET EmbarcacionId = NULL WHERE Id = @id;';
+    if (d.evento === 'SALIDA') {
+      efectos = `UPDATE dbo.Embarcaciones SET Estado = 'NAVEGANDO' WHERE Id = @embarcacion;`;
+    }
+    if (d.evento === 'ARRIBO') {
+      efectos = `UPDATE dbo.Embarcaciones SET Estado = 'EN_PUERTO' WHERE Id = @embarcacion;
+                 INSERT INTO dbo.Ubicaciones (EmbarcacionId, Latitud, Longitud, VelocidadNudos, Rumbo)
+                 SELECT @embarcacion, Latitud, Longitud, 0, 0 FROM dbo.Puertos WHERE Id = @puerto AND @embarcacion IS NOT NULL;`;
+    }
+
+    await req.query(`INSERT INTO dbo.HistorialMovimientos (ContenedorId, Evento, PuertoId, EmbarcacionId, Descripcion)
+                     VALUES (@id, @evento, @puerto, @embarcacion, @descripcion);
+                     UPDATE dbo.Contenedores SET Estado = @estado WHERE Id = @id;
+                     ${efectos}`);
   });
 }
