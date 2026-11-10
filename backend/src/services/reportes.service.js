@@ -94,7 +94,7 @@ function tabla(doc, columnas, filas, { tamano = 8.5 } = {}) {
     let x = x0;
     doc.font('Helvetica-Bold').fontSize(tamano - 1).fillColor(C.suave);
     for (const c of cols) {
-      doc.text(c.titulo.toUpperCase(), x + 5, y + 5, { width: c.w - 10, align: c.align ?? 'left', lineBreak: false, ellipsis: true });
+      doc.text(c.titulo.toUpperCase(), x + 5, y + 5, { width: c.w - 10, height: tamano, align: c.align ?? 'left', lineBreak: false, ellipsis: true });
       x += c.w;
     }
     doc.y = y + altoFila;
@@ -114,7 +114,7 @@ function tabla(doc, columnas, filas, { tamano = 8.5 } = {}) {
     for (const c of cols) {
       const valor = c.valor(fila);
       doc.font(c.negrita ? 'Helvetica-Bold' : 'Helvetica')
-        .text(String(valor ?? '—'), x + 5, y + 5, { width: c.w - 10, align: c.align ?? 'left', lineBreak: false, ellipsis: true });
+        .text(String(valor ?? '—'), x + 5, y + 5, { width: c.w - 10, height: tamano + 1, align: c.align ?? 'left', lineBreak: false, ellipsis: true });
       x += c.w;
     }
     doc.moveTo(x0, y + altoFila).lineTo(x0 + ancho(doc), y + altoFila).lineWidth(0.4).strokeColor(C.linea).stroke();
@@ -132,7 +132,7 @@ function datosClaveValor(doc, pares) {
     [pares[i], pares[i + 1]].forEach((par, j) => {
       if (!par) return;
       doc.font('Helvetica').fontSize(7.5).fillColor(C.tenue).text(par[0].toUpperCase(), x0 + j * colW, y, { width: colW - 12 });
-      doc.font('Helvetica-Bold').fontSize(10).fillColor(C.texto).text(String(par[1] ?? '—'), x0 + j * colW, y + 11, { width: colW - 12, lineBreak: false, ellipsis: true });
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(C.texto).text(String(par[1] ?? '—'), x0 + j * colW, y + 11, { width: colW - 12, height: 12, lineBreak: false, ellipsis: true });
     });
     doc.y = y + 30;
   }
@@ -247,7 +247,7 @@ function ranking(doc, titulo, filas, etiqueta) {
   filas.forEach((f) => {
     asegurarEspacio(doc, 16);
     const y = doc.y;
-    doc.font('Helvetica').fontSize(8.5).fillColor(C.texto).text(etiqueta(f), x0, y + 1, { width: wEtiqueta - 6, lineBreak: false, ellipsis: true });
+    doc.font('Helvetica').fontSize(8.5).fillColor(C.texto).text(etiqueta(f), x0, y + 1, { width: wEtiqueta - 6, height: 10, lineBreak: false, ellipsis: true });
     const largo = Math.max(1.5, (f.total / max) * wBarra);
     doc.roundedRect(x0 + wEtiqueta, y + 1, largo, 9, 2).fill(C.marca);
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.texto).text(num(f.total), x0 + w - wValor, y + 1, { width: wValor, align: 'right', lineBreak: false });
