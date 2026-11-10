@@ -26,6 +26,7 @@ $server = if ($cfg['DB_INSTANCE']) { "$($cfg['DB_SERVER'])\$($cfg['DB_INSTANCE']
 $scripts = if ($Solo) { $Solo } else { @(
     'scripts\01_create_database.sql',
     'scripts\02_schema.sql',
+    'migrations\05_sesion_version.sql',
     'seeders\03_seed.sql',
     'seeders\04_historico.sql'
 ) }

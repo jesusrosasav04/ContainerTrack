@@ -91,20 +91,37 @@ export async function obtener(numero) {
   return contenedor;
 }
 
+// Todo contenedor nace REGISTRADO y en tierra: el estado y el barco
+// solo cambian a traves de movimientos (ver registrarMovimiento)
 export async function crear(datos) {
   const error = validarNumero(datos.numeroContenedor);
   if (error) throw new HttpError(400, error);
-  validarDatos(datos);
-  const numero = normalizar(datos.numeroContenedor);
-  await Contenedor.create({ ...datos, numeroContenedor: numero });
+  const { numeroContenedor, tipoContenedor, naviera, puertoOrigen, puertoDestino } = datos;
+  const limpios = { tipoContenedor, naviera, puertoOrigen, puertoDestino };
+  validarDatos(limpios);
+  const numero = normalizar(numeroContenedor);
+  await Contenedor.create({ ...limpios, numeroContenedor: numero });
   return Contenedor.findByNumero(numero);
 }
 
+// Edicion de datos descriptivos. Estado y embarcacion no se editan aqui.
 export async function actualizar(numero, datos) {
-  validarDatos(datos, true);
+  if (datos.estado !== undefined || datos.embarcacionImo !== undefined) {
+    throw new HttpError(400, 'El estado y la embarcación cambian registrando movimientos, no editando el contenedor');
+  }
+  const { tipoContenedor, naviera, puertoOrigen, puertoDestino } = datos;
+  const cambios = Object.fromEntries(Object.entries({ tipoContenedor, naviera, puertoOrigen, puertoDestino }).filter(([, v]) => v !== undefined));
+  validarDatos(cambios, true);
   const actual = await obtener(numero);
-  const cambios = await Contenedor.update(actual.id, datos);
-  if (cambios === 0) throw new HttpError(400, 'No se envio ningun campo para actualizar');
+  if (actual.estado === 'ENTREGADO') throw new HttpError(409, 'Un contenedor entregado ya no se puede editar');
+  if (cambios.puertoOrigen && cambios.puertoOrigen !== actual.puertoOrigenCodigo && actual.estado !== 'REGISTRADO') {
+    throw new HttpError(409, 'El origen solo se puede cambiar antes del primer movimiento');
+  }
+  const destinoFinal = cambios.puertoDestino ?? actual.puertoDestinoCodigo;
+  const origenFinal = cambios.puertoOrigen ?? actual.puertoOrigenCodigo;
+  if (origenFinal === destinoFinal) throw new HttpError(400, 'El puerto de origen y destino deben ser distintos');
+  const n = await Contenedor.update(actual.id, cambios);
+  if (n === 0) throw new HttpError(400, 'No se envió ningún cambio');
   return Contenedor.findByNumero(actual.numeroContenedor);
 }
 

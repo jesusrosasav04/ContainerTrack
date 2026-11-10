@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Anchor, ArrowUpRight, BarChart3, CircleHelp, Container, LayoutDashboard, LogOut, Menu } from 'lucide-react';
+import { Anchor, ArrowUpRight, BarChart3, CircleHelp, Container, LayoutDashboard, LogOut, Menu, Ship, UserRound, Users } from 'lucide-react';
 import { ROLES, iniciales } from './utils.js';
 
 // Secciones del menu; `roles` limita quien las ve
 export const SECCIONES = [
   { ruta: '/', titulo: 'Panel general', icono: LayoutDashboard },
   { ruta: '/contenedores', titulo: 'Contenedores', icono: Container },
+  { ruta: '/catalogos', titulo: 'Embarcaciones y puertos', icono: Ship },
   { ruta: '/estadisticas', titulo: 'Estadísticas', icono: BarChart3, roles: ['ADMIN'] },
+  { ruta: '/usuarios', titulo: 'Usuarios', icono: Users, roles: ['ADMIN'] },
+  { ruta: '/cuenta', titulo: 'Mi cuenta', icono: UserRound },
 ];
 
 export const seccionesPara = (usuario) => SECCIONES.filter((s) => !s.roles || s.roles.includes(usuario.rol));
@@ -60,7 +63,7 @@ export default function Layout({ usuario, ruta, onLogout, children }) {
           <footer className="footer">
             <span>© 2026 ContainerTrack</span>
             <span>Se actualiza automáticamente</span>
-            <span>Versión 0.3.0</span>
+            <span>Versión 1.0.0</span>
           </footer>
         </div>
       </main>

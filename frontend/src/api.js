@@ -57,7 +57,17 @@ export const api = {
   eliminarContenedor: (numero) => request('DELETE', `/contenedores/${numero}`),
   historial: (numero) => get(`/contenedores/${numero}/historial`),
   registrarMovimiento: (numero, datos) => request('POST', `/contenedores/${numero}/movimientos`, datos),
+  actualizarContenedor: (numero, datos) => request('PATCH', `/contenedores/${numero}`, datos),
   estadisticas: (anio) => get(`/estadisticas?anio=${anio}`),
+  crearEmbarcacion: (datos) => request('POST', '/embarcaciones', datos),
+  actualizarEmbarcacion: (imo, datos) => request('PATCH', `/embarcaciones/${imo}`, datos),
+  crearPuerto: (datos) => request('POST', '/puertos', datos),
+  actualizarPuerto: (codigo, datos) => request('PATCH', `/puertos/${codigo}`, datos),
+  usuarios: () => get('/usuarios'),
+  crearUsuario: (datos) => request('POST', '/usuarios', datos),
+  actualizarUsuario: (id, datos) => request('PATCH', `/usuarios/${id}`, datos),
+  restablecerPassword: (id, password) => request('POST', `/usuarios/${id}/password`, { password }),
+  cambiarPassword: (actual, nueva) => request('POST', '/auth/cambiar-password', { actual, nueva }),
   embarcaciones: () => get('/embarcaciones'),
   ubicaciones: (imo, limite = 50) => get(`/embarcaciones/${imo}/ubicaciones?limite=${limite}`),
   puertos: () => get('/puertos'),
@@ -76,3 +86,10 @@ export async function cargarDashboard() {
   );
   return { contenedores, embarcaciones, puertos, trayectorias: Object.fromEntries(trayectorias) };
 }
+
+// Direcciones de los reportes PDF (se abren en una pestana nueva; la cookie de sesion viaja sola)
+export const reportes = {
+  contenedor: (numero) => `${BASE}/reportes/contenedor/${encodeURIComponent(numero)}`,
+  contenedores: ({ estado = 'TODOS', q = '' } = {}) => `${BASE}/reportes/contenedores?${new URLSearchParams({ estado, q })}`,
+  anual: (anio) => `${BASE}/reportes/anual?anio=${anio}`,
+};

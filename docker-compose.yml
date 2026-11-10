@@ -1,0 +1,86 @@
+# ContainerTrack con Docker: SQL Server + API + frontend (nginx).
+# Uso:  copy .env.example .env   (y completa las claves)
+#       docker compose up -d --build
+#       docker compose exec api node scripts/crear-admin.js
+# Abre http://localhost:8080
+name: containertrack
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Define SA_PASSWORD en .env}
+      MSSQL_PID: Express
+    volumes:
+      - sqldata:/var/opt/mssql            # los datos sobreviven a reinicios y reconstrucciones
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q \"SELECT 1\" -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+    # Para conectarte con SSMS desde Windows, descomenta (servidor: localhost,14333):
+    # ports:
+    #   - "127.0.0.1:14333:1433"
+
+  # Crea la base de datos, el usuario de la API y las tablas la primera vez.
+  # En arranques posteriores solo aplica migraciones; nunca borra datos.
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: ${SA_PASSWORD}
+      DB_NAME: ${DB_NAME:-ContainerTrack}
+      DB_USER: ${DB_USER:-containertrack_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    volumes:
+      - ./database:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/docker/init.sh"]
+    restart: "no"
+
+  api:
+    build: ./backend
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_SERVER: db
+      DB_PORT: 1433
+      DB_INSTANCE: ""
+      DB_NAME: ${DB_NAME:-ContainerTrack}
+      DB_USER: ${DB_USER:-containertrack_app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env}
+      SESSION_HOURS: ${SESSION_HOURS:-8}
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-8080}
+      # true cuando el sitio se sirva con HTTPS
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUST_PROXY: 1
+      SIMULADOR_ACTIVO: ${SIMULADOR_ACTIVO:-true}
+      SIMULADOR_INTERVALO: ${SIMULADOR_INTERVALO:-60}
+      SIMULADOR_ACELERACION: ${SIMULADOR_ACELERACION:-120}
+      TZ_REPORTES: ${TZ_REPORTES:-America/Mexico_City}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  sqldata:

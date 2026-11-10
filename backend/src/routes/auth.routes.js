@@ -18,5 +18,7 @@ const limiteLogin = rateLimit({
 router.post('/login', limiteLogin, ctrl.login);
 router.post('/logout', ctrl.logout);
 router.get('/me', requireAuth, ctrl.me);
+// Mismo limite: evita adivinar la contrasena actual desde una sesion robada
+router.post('/cambiar-password', limiteLogin, requireAuth, ctrl.cambiarPassword);
 
 export default router;

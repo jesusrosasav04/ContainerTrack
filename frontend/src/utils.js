@@ -50,6 +50,11 @@ export const TIPOS = {
   '40RF': '40 pies refrigerado',
 };
 
+// Mensaje de error de la API con sus detalles de validacion, si los hay
+export function errorTexto(err) {
+  return err.detalles?.length ? `${err.message}: ${err.detalles.join(' · ')}` : err.message;
+}
+
 export const ROLES = { ADMIN: 'Administrador', OPERADOR: 'Operador', CONSULTA: 'Consulta' };
 export const puedeEditar = (u) => u?.rol === 'ADMIN' || u?.rol === 'OPERADOR';
 

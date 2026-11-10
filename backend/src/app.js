@@ -11,9 +11,14 @@ import contenedoresRoutes from './routes/contenedores.routes.js';
 import embarcacionesRoutes from './routes/embarcaciones.routes.js';
 import puertosRoutes from './routes/puertos.routes.js';
 import estadisticasRoutes from './routes/estadisticas.routes.js';
+import reportesRoutes from './routes/reportes.routes.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
+
+// Detras de un proxy (nginx en Docker) la IP real viene en X-Forwarded-For.
+// Necesario para que el limite de intentos de login cuente por cliente y no por proxy.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 
 /* ---------- Seguridad general ---------- */
 app.use(helmet());                                   // cabeceras: nosniff, frameguard, HSTS, etc.
@@ -50,6 +55,7 @@ app.use('/api/embarcaciones', requireAuth, embarcacionesRoutes);
 app.use('/api/puertos', requireAuth, puertosRoutes);
 app.use('/api/usuarios', requireAuth, requireRole('ADMIN'), usuariosRoutes);
 app.use('/api/estadisticas', requireAuth, requireRole('ADMIN'), estadisticasRoutes);
+app.use('/api/reportes', requireAuth, reportesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,9 +1,9 @@
-import { COOKIE, verificarToken } from '../services/auth.service.js';
+import { COOKIE, publico, verificarToken } from '../services/auth.service.js';
 import * as Usuario from '../models/usuario.model.js';
 import { HttpError } from './errorHandler.js';
 
-// Exige una sesion valida. El usuario se lee de la BD en cada peticion,
-// asi un cambio de rol o una cuenta desactivada surte efecto de inmediato.
+// Exige una sesion valida. El usuario se lee de la BD en cada peticion:
+// un cambio de rol, una cuenta desactivada o un cambio de contrasena surten efecto de inmediato.
 export async function requireAuth(req, res, next) {
   const token = req.cookies?.[COOKIE];
   if (!token) throw new HttpError(401, 'Inicia sesión para continuar');
@@ -17,8 +17,12 @@ export async function requireAuth(req, res, next) {
 
   const usuario = await Usuario.findById(Number(payload.sub));
   if (!usuario || !usuario.activo) throw new HttpError(401, 'Tu cuenta no tiene acceso. Contacta a un administrador.');
+  // Si la contrasena cambio despues de emitir este token, la sesion ya no vale
+  if ((payload.ver ?? 0) !== (usuario.sesionVersion ?? 0)) {
+    throw new HttpError(401, 'Tu sesión expiró. Vuelve a iniciar sesión.');
+  }
 
-  req.usuario = usuario;
+  req.usuario = publico(usuario);
   next();
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Clock3, Container, PackageCheck, Table2, Waves } from 'lucide-react';
-import { api } from './api.js';
+import { ArrowDownRight, ArrowUpRight, Clock3, Container, FileDown, PackageCheck, Table2, Waves } from 'lucide-react';
+import { api, reportes } from './api.js';
 import { useAutoRefresh } from './useAutoRefresh.js';
 import { Actualizado, ErrorBanner, PageHeading } from './components.jsx';
 import { ESTADOS, MESES, TIPOS, numero } from './utils.js';
@@ -147,6 +147,7 @@ export default function Estadisticas() {
           </select>
         </label>
         <Actualizado fecha={actualizado} cargando={cargando} onRecargar={recargar} />
+        <a className="primary-button" href={reportes.anual(anio)} target="_blank" rel="noopener"><FileDown size={16} /> Reporte PDF</a>
       </PageHeading>
 
       {!d ? (

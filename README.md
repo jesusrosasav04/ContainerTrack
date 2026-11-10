@@ -11,6 +11,8 @@ Permite registrar contenedores, seguir su recorrido entre puertos, visualizar em
 - Registro de contenedores con validación del número según la norma ISO 6346.
 - Historial de movimientos de cada contenedor, desde su registro hasta la entrega.
 - Estadísticas anuales para administradores.
+- Reportes en PDF: ficha de contenedor, listados y reporte anual.
+- Administración de usuarios, embarcaciones y puertos.
 - Actualización automática de posiciones y estados.
 
 ## Tecnologías
@@ -22,6 +24,9 @@ Permite registrar contenedores, seguir su recorrido entre puertos, visualizar em
 | Base de datos | Microsoft SQL Server |
 | Mapas | Leaflet + OpenStreetMap |
 | Autenticación | JWT + bcrypt |
+| Reportes | PDFKit |
+| Pruebas | Vitest + Supertest |
+| Contenedores | Docker Compose + nginx |
 
 ## Estructura
 
@@ -39,8 +44,10 @@ ContainerTrack/
 - [x] Autenticación y roles
 - [x] Panel con mapa, registro de contenedores y estadísticas
 - [x] Rastreo simulado
-- [ ] Pruebas automáticas
-- [ ] Docker y despliegue
+- [x] Reportes PDF
+- [x] Pruebas automáticas
+- [x] Docker
+- [ ] Rastreo con datos AIS reales
 
 Las posiciones de las embarcaciones son simuladas; no corresponden a datos AIS en tiempo real.
 

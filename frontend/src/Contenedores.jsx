@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, CirclePlus, PackageSearch, Search, Ship, Trash2, X } from 'lucide-react';
-import { api } from './api.js';
+import { CheckCircle2, ChevronLeft, ChevronRight, CirclePlus, FileDown, PackageSearch, Pencil, Search, Ship, Trash2, X } from 'lucide-react';
+import { api, reportes } from './api.js';
 import { useAutoRefresh } from './useAutoRefresh.js';
 import { Actualizado, ErrorBanner, PageHeading, StatusPill } from './components.jsx';
-import { ESTADOS, EVENTOS, TIPOS, eventosDisponibles, fechaCorta, fechaHora, puedeEditar, revisarNumero } from './utils.js';
+import { ESTADOS, EVENTOS, TIPOS, errorTexto, eventosDisponibles, fechaCorta, fechaHora, puedeEditar, revisarNumero } from './utils.js';
 
 const POR_PAGINA = 20;
 
@@ -12,10 +12,6 @@ async function cargarCatalogos() {
   return { contenedores, puertos, embarcaciones };
 }
 
-// Muestra el mensaje de error y, si los hay, los detalles de validacion de la API
-function errorTexto(err) {
-  return err.detalles?.length ? `${err.message}: ${err.detalles.join(' · ')}` : err.message;
-}
 
 /* ---------------- Formulario de alta ---------------- */
 const VACIO = { numeroContenedor: '', tipoContenedor: '40HC', naviera: '', puertoOrigen: '', puertoDestino: '' };
@@ -90,8 +86,64 @@ function FormularioAlta({ puertos, navieras, onCreado, onCerrar }) {
   );
 }
 
+/* ---------------- Edicion de datos descriptivos ---------------- */
+function FormularioEdicion({ contenedor: c, puertos, navieras, onGuardado, onCerrar }) {
+  const [f, setF] = useState({ tipoContenedor: c.tipoContenedor, naviera: c.naviera, puertoOrigen: c.puertoOrigenCodigo, puertoDestino: c.puertoDestinoCodigo });
+  const [error, setError] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const cambiar = (campo) => (e) => setF({ ...f, [campo]: e.target.value });
+  const origenEditable = c.estado === 'REGISTRADO';
+
+  async function enviar(e) {
+    e.preventDefault();
+    setError(null);
+    setEnviando(true);
+    // Solo se envia lo que cambio
+    const cambios = Object.fromEntries(Object.entries(f).filter(([k, v]) => v !== { tipoContenedor: c.tipoContenedor, naviera: c.naviera, puertoOrigen: c.puertoOrigenCodigo, puertoDestino: c.puertoDestinoCodigo }[k]));
+    if (cambios.naviera) cambios.naviera = cambios.naviera.trim();
+    try {
+      if (Object.keys(cambios).length) await api.actualizarContenedor(c.numeroContenedor, cambios);
+      onGuardado();
+    } catch (err) {
+      setError(errorTexto(err));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <form className="move-form edit-form" onSubmit={enviar}>
+      <h3>Editar datos</h3>
+      {error && <div className="form-error">{error}</div>}
+      <label className="field"><span>Tipo</span>
+        <select value={f.tipoContenedor} onChange={cambiar('tipoContenedor')}>{Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{k} · {v}</option>)}</select>
+      </label>
+      <label className="field"><span>Naviera</span>
+        <input value={f.naviera} onChange={cambiar('naviera')} list="lista-navieras-edicion" maxLength={100} required />
+        <datalist id="lista-navieras-edicion">{navieras.map((n) => <option key={n} value={n} />)}</datalist>
+      </label>
+      <label className="field"><span>Origen</span>
+        <select value={f.puertoOrigen} onChange={cambiar('puertoOrigen')} disabled={!origenEditable}>
+          {puertos.map((p) => <option key={p.codigo} value={p.codigo}>{p.nombre} ({p.codigo})</option>)}
+        </select>
+        {!origenEditable && <small className="hint">El origen ya no se puede cambiar: el contenedor tiene movimientos.</small>}
+      </label>
+      <label className="field"><span>Destino</span>
+        <select value={f.puertoDestino} onChange={cambiar('puertoDestino')}>
+          {puertos.filter((p) => p.codigo !== f.puertoOrigen).map((p) => <option key={p.codigo} value={p.codigo}>{p.nombre} ({p.codigo})</option>)}
+        </select>
+      </label>
+      <div className="form-actions compact">
+        <button type="button" className="outline-button" onClick={onCerrar}>Cancelar</button>
+        <button type="submit" className="primary-button" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar'}</button>
+      </div>
+    </form>
+  );
+}
+
 /* ---------------- Detalle, movimientos e historial ---------------- */
-function Detalle({ contenedor: c, puertos, embarcaciones, usuario, actualizado, onCambio, onCerrar }) {
+function Detalle({ contenedor: c, puertos, embarcaciones, navieras, usuario, actualizado, onCambio, onCerrar }) {
+  const [editando, setEditando] = useState(false);
   const [historial, setHistorial] = useState([]);
   const [evento, setEvento] = useState('');
   const [puerto, setPuerto] = useState('');
@@ -114,7 +166,7 @@ function Detalle({ contenedor: c, puertos, embarcaciones, usuario, actualizado, 
   useEffect(() => {
     setEvento(''); setImo(''); setDescripcion(''); setConfirmarBorrado(false);
   }, [c.numeroContenedor, c.estado]);
-  useEffect(() => { setMensaje(null); setHistorial([]); }, [c.numeroContenedor]);
+  useEffect(() => { setMensaje(null); setHistorial([]); setEditando(false); }, [c.numeroContenedor]);
 
   // Puerto sugerido segun el evento (el backend usa la misma regla si no se envia)
   useEffect(() => {
@@ -163,6 +215,11 @@ function Detalle({ contenedor: c, puertos, embarcaciones, usuario, actualizado, 
         <button className="icon-close" onClick={onCerrar} aria-label="Cerrar detalle"><X size={18} /></button>
       </div>
 
+      <div className="detail-actions">
+        <a className="outline-button small" href={reportes.contenedor(c.numeroContenedor)} target="_blank" rel="noopener"><FileDown size={13} /> Ficha PDF</a>
+        {editor && c.estado !== 'ENTREGADO' && !editando && <button className="outline-button small" onClick={() => setEditando(true)}><Pencil size={13} /> Editar datos</button>}
+      </div>
+
       <dl className="detail-grid">
         <div><dt>Tipo</dt><dd>{c.tipoContenedor} · {TIPOS[c.tipoContenedor]}</dd></div>
         <div><dt>Naviera</dt><dd>{c.naviera}</dd></div>
@@ -172,6 +229,16 @@ function Detalle({ contenedor: c, puertos, embarcaciones, usuario, actualizado, 
       </dl>
 
       {mensaje && <div className={mensaje.ok ? 'form-ok' : 'form-error'} role="status">{mensaje.texto}</div>}
+
+      {editando && (
+        <FormularioEdicion
+          contenedor={c}
+          puertos={puertos}
+          navieras={navieras}
+          onCerrar={() => setEditando(false)}
+          onGuardado={() => { setEditando(false); setMensaje({ ok: true, texto: 'Datos actualizados.' }); onCambio(); }}
+        />
+      )}
 
       {editor && (disponibles.length ? (
         <form className="move-form" onSubmit={registrar}>
@@ -277,6 +344,7 @@ export default function Contenedores({ usuario }) {
       <ErrorBanner mensaje={error} onReintentar={recargar} />
       <PageHeading kicker="GESTIÓN LOGÍSTICA" titulo="Contenedores" descripcion="Registra contenedores y sus movimientos. La lista se actualiza sola.">
         <Actualizado fecha={actualizado} cargando={cargando} onRecargar={recargar} />
+        <a className="outline-button" href={reportes.contenedores({ estado, q: query.trim() })} target="_blank" rel="noopener"><FileDown size={15} /> Exportar PDF</a>
         {puedeEditar(usuario) && (
           <button className="primary-button" onClick={() => setMostrarAlta(true)}><CirclePlus size={16} /> Nuevo contenedor</button>
         )}
@@ -347,6 +415,7 @@ export default function Contenedores({ usuario }) {
             contenedor={actual}
             puertos={datos.puertos}
             embarcaciones={datos.embarcaciones}
+            navieras={navieras}
             usuario={usuario}
             actualizado={actualizado}
             onCerrar={() => setSeleccionado(null)}
